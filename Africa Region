@@ -1,0 +1,1029 @@
+```{r setup2, include = FALSE, purl = FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+## AFRICA
+Raw Data Reading
+```{r}
+tanzania<- read.csv("tanzania.csv",header=TRUE,na.strings=c(""))
+colnames(tanzania) <- gsub("^\\s+|\\s+$", "", colnames(tanzania))
+uganda <- read.csv("uganda.csv",header=TRUE,na.strings=c(""))
+colnames(uganda) <- gsub("^\\s+|\\s+$", "", colnames(uganda))
+zambia <- read.csv("zambia.csv",header=TRUE,na.strings=c(""))
+colnames(zambia) <- gsub("^\\s+|\\s+$", "", colnames(zambia))
+senegal <- read.csv("senegal.csv",header=TRUE,na.strings=c(""))
+colnames(senegal) <- gsub("^\\s+|\\s+$", "", colnames(senegal))
+tunisia <- read.csv("tunisia.csv",header=TRUE,na.strings=c(""))
+colnames(tunisia) <- gsub("^\\s+|\\s+$", "", colnames(tunisia))
+
+```
+
+Data PreProcessing: Missing Values, Duplicate Values
+```{r}
+
+print("Total Missing Values: ")
+print(paste("Tanzania: ",sum(is.na(tanzania))))
+print(paste("Uganda: ",sum(is.na(uganda))))
+print(paste("Zambia: ",sum(is.na(zambia))))
+print(paste("senegal: ",sum(is.na(senegal))))
+print(paste("tunisia: ",sum(is.na(tunisia))))
+
+```
+
+
+```{r}
+      
+tanzania <- na.omit(tanzania, cols = c('Event'))
+
+uganda <- na.omit(uganda, cols = c('Event', 'Directly.affected', 'Losses..USD'))
+
+zambia <- na.omit(zambia, cols = c('Event'))
+
+senegal <- na.omit(senegal, cols = c('Event'))
+
+tunisia <- na.omit(tunisia, cols = c('Event'))
+
+```
+
+
+```{r}
+
+print("Total Missing Values: ")
+print(paste("Tanzania: ",sum(is.na(tanzania))))
+print(paste("Uganda: ",sum(is.na(uganda))))
+print(paste("Zambia: ",sum(is.na(zambia))))
+print(paste("senegal: ",sum(is.na(senegal))))
+print(paste("tunisia: ",sum(is.na(tunisia))))
+
+```
+
+
+```{r}
+print("Total Duplicate values")
+print(paste("Tanzania: ", sum(duplicated(tanzania))))
+print(paste("Uganda: ", sum(duplicated(uganda))))
+print(paste("Zambia: ", sum(duplicated(zambia))))
+print(paste("senegal: ", sum(duplicated(senegal))))
+print(paste("tunisia: ", sum(duplicated(tunisia))))
+
+```
+ 
+ 
+```{r}
+tanzania$Event <- toupper(tanzania$Event)
+uganda$Event <- toupper(uganda$Event)
+zambia$Event <- toupper(zambia$Event)
+senegal$Event <- toupper(senegal$Event)
+tunisia$Event <- toupper(tunisia$Event)
+```
+
+Data Tranformation
+```{r}
+uganda$Houses.Ruined <-uganda$Houses.Destroyed + uganda$Houses.Damaged
+uganda$Affected <-uganda$Directly.affected + uganda$Indirectly.Affected
+
+uganda$Monetary.LossUSD<-uganda$Losses..USD + uganda$Losses..Local * (0.00026)
+uganda$Monetary.LossUSD <- as.integer(uganda$Monetary.LossUSD)
+
+uganda = select(uganda, -5:-10)
+head(uganda)
+summary(uganda)
+
+
+```
+
+```{r}
+tanzania$Houses.Ruined <-tanzania$Houses.Destroyed + tanzania$Houses.Damaged
+tanzania$Affected <-tanzania$Directly.affected + tanzania$Indirectly.Affected
+
+tanzania$Monetary.LossUSD<-tanzania$Losses..USD + tanzania$Losses..Local * (0.00040)
+tanzania$Monetary.LossUSD <- as.integer(tanzania$Monetary.LossUSD)
+
+tanzania = select(tanzania, -5:-10)
+head(tanzania)
+summary(tanzania)
+
+```
+
+```{r}
+zambia$Houses.Ruined <-zambia$Houses.Destroyed + zambia$Houses.Damaged
+zambia$Affected <-zambia$Directly.affected + zambia$Indirectly.Affected
+
+zambia$Monetary.LossUSD<-zambia$Losses..USD + zambia$Losses..Local * (0.043)
+zambia$Monetary.LossUSD <- as.integer(zambia$Monetary.LossUSD)
+
+zambia = select(zambia, -5:-10)
+head(zambia)
+summary(zambia)
+
+```
+
+```{r}
+senegal$Houses.Ruined <-senegal$Houses.Destroyed + senegal$Houses.Damaged
+senegal$Affected <-senegal$Directly.affected + senegal$Indirectly.Affected
+
+senegal$Monetary.LossUSD<-senegal$Losses..USD + senegal$Losses..Local * (0.00166)
+senegal$Monetary.LossUSD <- as.integer(senegal$Monetary.LossUSD)
+
+senegal = select(senegal, -5:-10)
+head(senegal)
+summary(senegal)
+```
+
+```{r}
+tunisia$Houses.Ruined <-tunisia$Houses.Destroyed + tunisia$Houses.Damaged
+tunisia$Affected <-tunisia$Directly.affected + tunisia$Indirectly.Affected
+tunisia$Monetary.LossUSD<-tunisia$Losses..USD + tunisia$Losses..Local * (0.32)
+tunisia$Monetary.LossUSD <- as.integer(tunisia$Monetary.LossUSD)
+tunisia = select(tunisia, -5:-10)
+head(tunisia)
+summary(tunisia)
+```
+
+Feature addition 1
+```{r}
+add_Event_Severity <- function(data) {
+  data$Event_Severity <- data$Deaths / data$DataCards
+  
+  a_countries <- c("uganda", "tanzania", "senegal")
+  b_countries <- c("tunisia", "zambia")
+  
+  for (country in a_countries) {
+    data$Event_Severity[data$Country == country & data$Event_Severity > 1] <- 1
+    data$Event_Severity[data$Country == country & data$Event_Severity < 0.5] <- 0.5
+  }
+  
+
+  for (country in b_countries) {
+    data$Event_Severity[data$Country == country & data$Event_Severity > 2] <- 2
+    data$Event_Severity[data$Country == country & data$Event_Severity < 1] <- 1
+  }
+  data$Event_Severity <- round(data$Event_Severity * 100)
+  return(data$Event_Severity)
+}
+
+uganda$Event_Severity <- add_Event_Severity(uganda)
+tanzania$Event_Severity <- add_Event_Severity(tanzania)
+senegal$Event_Severity <- add_Event_Severity(senegal)
+tunisia$Event_Severity<- add_Event_Severity(tunisia)
+zambia$Event_Severity <- add_Event_Severity(zambia)
+
+```
+
+Feature 2
+```{r}
+tanzania$Event_factor<-as.integer(as.factor(tanzania$Event))
+senegal$Event_factor<-as.integer(as.factor(senegal$Event))
+uganda$Event_factor<-as.integer(as.factor(uganda$Event))
+tunisia$Event_factor<-as.integer(as.factor(tunisia$Event))
+zambia$Event_factor<-as.integer(as.factor(zambia$Event))
+head(tanzania)
+
+```
+
+writeCsv
+```{r}
+write.csv(tanzania, file = "tanzania_cleaned.csv", row.names = FALSE)
+write.csv(uganda, file = "uganda_cleaned.csv", row.names = FALSE)
+write.csv(zambia, file = "zambia_cleaned.csv", row.names=FALSE)
+write.csv(tunisia, file = "tunisia_cleaned.csv", row.names = FALSE)
+write.csv(senegal, file = "senegal_cleaned.csv", row.names = FALSE)
+
+```
+
+Read Csv
+```{r}
+tanzania_c <- read.csv("tanzania_cleaned.csv",header=TRUE)
+uganda_c <- read.csv("uganda_cleaned.csv",header=TRUE)
+zambia_c <- read.csv("zambia_cleaned.csv",header=TRUE)
+tunisia_c <- read.csv("tunisia_cleaned.csv",header=TRUE)
+senegal_c <- read.csv("senegal_cleaned.csv",header=TRUE)
+```
+
+Combining into one continent
+```{r}
+africa <- rbind(tanzania_c,tunisia_c, senegal_c, zambia_c, uganda_c)
+
+```
+
+Preprocessing Visualization (Africa)
+```{r}
+africa_perc <- africa %>%
+  mutate(
+    Total = DataCards + Deaths + `Houses.Ruined` + Affected,
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = `Houses.Ruined` / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+africa_long <- africa_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+threshold <- 50
+
+filtered_africa_long <- africa_long %>%
+  group_by(Event) %>%
+  summarise(Total_Percentage = sum(Percentage)) %>%
+  filter(Total_Percentage > threshold) %>%
+  inner_join(africa_long  , by = "Event") %>%
+  ungroup()
+
+ggplot(filtered_africa_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (Africa)")
+
+
+```
+
+Preprocessing visualization(individual)
+```{r}
+tanzania_c<- tanzania_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ tanzania_c_perc <- tanzania_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ tanzania_c_long <-  tanzania_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( tanzania_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +  
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (tanzania)")
+
+```
+
+
+```{r}
+
+zambia_c<- zambia_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ zambia_c_perc <- zambia_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+  zambia_c_long <-  zambia_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( zambia_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +  
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (zambia)")
+
+```
+
+
+```{r}
+uganda_c<- uganda_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ uganda_c_perc <- uganda_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ uganda_c_long <-  uganda_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+ggplot( uganda_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +  
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (uganda)")
+
+```
+
+
+```{r}
+tunisia_c<- tunisia_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ tunisia_c_perc <- tunisia_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ tunisia_c_long <-  tunisia_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( tunisia_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) + 
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (tunisia)")
+
+```
+
+
+```{r}
+senegal_c<- senegal_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+senegal_c_perc <- senegal_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ senegal_c_long <-  senegal_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( senegal_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) + 
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (senegal)")
+```
+
+Split parameter and model (Africa)
+```{r}
+
+numeric_data <- africa[, sapply(africa, is.numeric)]
+
+scaled_data <- scale(numeric_data)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+formula <- numeric_data$Deaths ~ numeric_data$DataCards + numeric_data$Deaths + numeric_data$Monetary.LossUSD + numeric_data$Event_Severity + numeric_data$Houses.Ruined + numeric_data$Affected
+  model <- lm(formula, data = numeric_data)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(numeric_data)
+print("Correlation matrix ")
+print(cor_matrix)
+set.seed(123)
+split_indices <- createDataPartition(africa$Year, p = 0.7, list = FALSE)
+
+training_data_africa <- numeric_data[split_indices, ]
+testing_data_africa <- numeric_data[-split_indices, ]
+
+```
+
+Model 1 enet on death ~ !Event, deaths  - 25 % accuracy
+```{r}
+train_data <- training_data_africa
+test_data <-  testing_data_africa
+
+X_train <- as.matrix(subset(train_data, select =- c(Deaths)))
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Deaths)))
+y_test <- test_data$Deaths
+
+X_train_std <- scale(X_train)
+X_test_std <- scale(X_test)
+
+enet_model_combined<- cv.glmnet(X_train_std, y_train, alpha = 0.5) 
+
+best_lambda <- enet_model_combined$lambda.min
+
+y_pred <- predict(enet_model_combined, newx = X_test_std, s = best_lambda)
+
+mse <- mean((y_pred - y_test)^2)
+rsquared <- cor(y_pred, y_test)^2
+
+cat("Best Lambda:", best_lambda, "\n")
+cat("Mean Squared Error:", mse, "\n")
+cat("R-squared:", rsquared, "\n")
+```
+
+Model 2 random forest on death ~ !Event, deaths - 73% accuracy
+```{r}
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+
+```
+
+Split(individual)
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(tanzania_c$Year, p = 0.7, list = FALSE)
+training_data_tanzania <- tanzania_c[split_indices, ]
+testing_data_tanzania <- tanzania_c[-split_indices, ]
+
+```
+
+
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(zambia_c$Year, p = 0.7, list = FALSE)
+training_data_zambia <- zambia_c[split_indices, ]
+testing_data_zambia <- zambia_c[-split_indices, ]
+
+```
+
+
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(uganda_c$Year, p = 0.7, list = FALSE)
+training_data_uganda <- uganda_c[split_indices, ]
+testing_data_uganda <- uganda_c[-split_indices, ]
+
+```
+
+
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(senegal_c$Year, p = 0.7, list = FALSE)
+training_data_senegal <- senegal_c[split_indices, ]
+testing_data_senegal <- senegal_c[-split_indices, ]
+
+```
+
+
+```{r}
+# Imbalanced Distribution: There's considerable variation in the number of observations across different years. Some years have only a few observations while others have many more. View distubution by table(tunisia$Year)
+
+unique_years <- unique(tunisia_c$Year)
+train_indices <- test_indices <- c()
+
+for (year in unique_years) {
+  year_indices <- which(tunisia_c$Year == year)
+  
+  num_samples_train <- round(length(year_indices) * 0.7)
+  
+  train_indices <- c(train_indices, sample(year_indices, num_samples_train))
+  test_indices <- c(test_indices, setdiff(year_indices, train_indices))
+}
+training_data_tunisia <- tunisia_c[train_indices, ]
+testing_data_tunisia <- tunisia_c[test_indices,]
+```
+
+PCA , CORRELATION MATRIX AND VIF
+```{r}
+tanzania_no_event <- tanzania_c[, !names(tanzania_c) %in% c("Event")]
+scaled_data <- scale(tanzania_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- tanzania_c$Deaths ~ tanzania_c$DataCards + tanzania_c$Deaths + tanzania_c$Monetary.LossUSD + tanzania_c$Event_Severity + tanzania_c$Houses.Ruined + tanzania_c$Affected
+  model <- lm(formula, data = tanzania_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(tanzania_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+
+```
+
+
+```{r}
+zambia_no_event <- zambia_c[, !names(zambia_c) %in% c("Event")]
+scaled_data <- scale(zambia_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- zambia_c$Deaths ~ zambia_c$DataCards + zambia_c$Deaths + zambia_c$Monetary.LossUSD + zambia_c$Event_Severity + zambia_c$Houses.Ruined + zambia_c$Affected
+  model <- lm(formula, data = zambia_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(zambia_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+
+```
+
+
+```{r}
+uganda_no_event <- uganda_c[, !names(uganda_c) %in% c("Event","Monetary.LossUSD")]
+scaled_data <- scale(uganda_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- uganda_c$Deaths ~ uganda_c$DataCards + uganda_c$Deaths  + uganda_c$Event_Severity + uganda_c$Houses.Ruined + uganda_c$Affected
+  model <- lm(formula, data = uganda_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(uganda_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+
+```
+
+
+```{r}
+tunisia_no_event <- tunisia_c[, !names(tunisia_c) %in% c("Event")]
+scaled_data <- scale(tunisia_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- tunisia_c$Deaths ~ tunisia_c$DataCards + tunisia_c$Deaths + tunisia_c$Monetary.LossUSD + tunisia_c$Event_Severity + tunisia_c$Houses.Ruined + tunisia_c$Affected
+  model <- lm(formula, data = tunisia_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(tunisia_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+```
+
+
+```{r}
+senegal_no_event <- senegal_c[, !names(senegal_c) %in% c("Event")]
+scaled_data <- scale(senegal_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- senegal_c$Deaths ~ senegal_c$DataCards + senegal_c$Deaths + senegal_c$Monetary.LossUSD + senegal_c$Event_Severity +senegal_c$Houses.Ruined + senegal_c$Affected
+  model <- lm(formula, data = senegal_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(senegal_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+```
+
+Regression Model and Visual
+Tanzania - model2- 0.62 death ~ - c(Event,Deaths)
+```{r}
+y <- training_data_tanzania$Deaths
+X <- subset(training_data_tanzania, select = - c(Event,Deaths))  
+
+train_data <- training_data_tanzania
+test_data <-  testing_data_tanzania
+
+X_train <- as.matrix(subset(train_data, select = - c(Event,Deaths))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths)))
+y_test <- test_data$Deaths
+
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+
+```
+
+Zambia - model2- 0.87 death ~ - c(Event,Deaths)
+```{r}
+
+y <- training_data_zambia$Deaths
+X <- subset(training_data_zambia, select = - c(Event,Deaths ))  
+
+train_data <- training_data_zambia
+test_data <-  testing_data_zambia
+
+X_train <- as.matrix(subset(train_data, select = - c(Event,Deaths ))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths)))
+y_test <- test_data$Deaths
+
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+
+```
+
+Uganda - model2- 0.85 death ~ - c(Event,Deaths)
+```{r}
+y <- training_data_uganda$Deaths
+X <- subset(training_data_uganda, select = - c(Event,Deaths))  
+
+train_data <- training_data_uganda
+test_data <-  testing_data_uganda
+
+X_train <- as.matrix(subset(train_data, select = - c(Event,Deaths))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths)))
+y_test <- test_data$Deaths
+
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+
+```
+
+Senegal - model2- 0.02 death ~ - c(Event,Deaths)
+```{r}
+y <- training_data_senegal$Deaths
+X <- subset(training_data_senegal, select = - c(Event,Deaths))  
+
+train_data <- training_data_senegal
+test_data <-  testing_data_senegal
+
+X_train <- as.matrix(subset(train_data, select = - c(Event,Deaths))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths)))
+y_test <- test_data$Deaths
+
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+```
+
+Tunisia - model2- 0.61 death ~ - c(Event,Deaths)
+```{r}
+y <- training_data_tunisia$Deaths
+X <- subset(training_data_tunisia, select = - c(Event,Deaths ))  
+
+train_data <- training_data_tunisia
+test_data <-  testing_data_tunisia
+
+X_train <- as.matrix(subset(train_data, select = - c(Event,Deaths ))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths)))
+y_test <- test_data$Deaths
+
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+```
+
+Cluster 1
+```{r}
+tanzania_c$Severity_Class <- ifelse(tanzania_c$Event_Severity >= mean(tanzania_c$Event_Severity), "High Severity", "Low Severity")
+year_quantiles <- quantile(tanzania_c$Year, probs = c(0, 1/3, 2/3, 1))
+tanzania_c$Temporal_Class <- cut(tanzania_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+tanzania_c$Combined_Impact <- rowSums(subset(tanzania_c, select = c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+quantiles <- quantile(tanzania_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+quantiles <- unique(quantiles)
+
+labels <- c("Minimal Impact", "Moderate Impact", "Severe Impact", "Very Severe Impact")
+tanzania_c$Impact_Class <- cut(tanzania_c$Combined_Impact,
+                            breaks = quantiles,
+                            labels = labels[1:(length(quantiles) - 1)],
+                            include.lowest=TRUE)
+kmeans_result <- kmeans(tanzania_c$DataCards, centers = 4)
+tanzania_c$cluster_id <- factor(kmeans_result$cluster)
+
+cluster_means <- aggregate(tanzania_c$DataCards, by = list(tanzania_c$cluster_id), FUN = mean)
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+tanzania_c$cluster_label <- label_mapping[match(tanzania_c$cluster_id, sorted_clusters$Group.1)]
+```
+
+
+```{r}
+
+zambia_c$Severity_Class <- ifelse(zambia_c$Event_Severity >= mean(zambia_c$Event_Severity), "High Severity", "Low Severity")
+year_quantiles <- quantile(zambia_c$Year, probs = c(0, 1/3, 2/3, 1))
+zambia_c$Temporal_Class <- cut(zambia_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+zambia_c$Combined_Impact <- rowSums(subset(zambia_c, select = c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+quantiles <- quantile(zambia_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+quantiles <- unique(quantiles)
+
+labels <- c("Minimal Impact", "Moderate Impact", "Severe Impact", "Very Severe Impact")
+zambia_c$Impact_Class <- cut(zambia_c$Combined_Impact,
+                            breaks = quantiles,
+                            labels = labels[1:(length(quantiles) - 1)],
+                            include.lowest=TRUE)
+
+kmeans_result <- kmeans(zambia_c$DataCards, centers = 4)
+zambia_c$cluster_id <- factor(kmeans_result$cluster)
+cluster_means <- aggregate(zambia_c$DataCards, by = list(zambia_c$cluster_id), FUN = mean)
+
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+zambia_c$cluster_label <- label_mapping[match(zambia_c$cluster_id, sorted_clusters$Group.1)]
+
+```
+
+
+```{r}
+
+uganda_c$Severity_Class <- ifelse(uganda_c$Event_Severity >= mean(uganda_c$Event_Severity), "High Severity", "Low Severity")
+year_quantiles <- quantile(uganda_c$Year, probs = c(0, 1/3, 2/3, 1))
+uganda_c$Temporal_Class <- cut(uganda_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+uganda_c$Combined_Impact <- rowSums(subset(uganda_c, select = c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+quantiles <- quantile(uganda_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+quantiles <- unique(quantiles)
+
+labels <- c("Minimal Impact", "Moderate Impact", "Severe Impact", "Very Severe Impact")
+uganda_c$Impact_Class <- cut(uganda_c$Combined_Impact,
+                            breaks = quantiles,
+                            labels = labels[1:(length(quantiles) - 1)],
+                            include.lowest=TRUE)
+
+kmeans_result <- kmeans(uganda_c$DataCards, centers = 4)
+uganda_c$cluster_id <- factor(kmeans_result$cluster)
+
+cluster_means <- aggregate(uganda_c$DataCards, by = list(uganda_c$cluster_id), FUN = mean)
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+uganda_c$cluster_label <- label_mapping[match(uganda_c$cluster_id, sorted_clusters$Group.1)]
+```
+
+
+```{r}
+senegal_c$Severity_Class <- ifelse(senegal_c$Event_Severity >= mean(senegal_c$Event_Severity), "High Severity", "Low Severity")
+
+year_quantiles <- quantile(senegal_c$Year, probs = c(0, 1/3, 2/3, 1))
+senegal_c$Temporal_Class <- cut(senegal_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+senegal_c$Combined_Impact <- rowSums(subset(senegal_c, select = c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+
+quantiles <- quantile(senegal_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+
+quantiles <- unique(quantiles)
+
+labels <- c("Minimal Impact", "Moderate Impact", "Severe Impact", "Very Severe Impact")
+senegal_c$Impact_Class <- cut(senegal_c$Combined_Impact,
+                            breaks = quantiles,
+                            labels = labels[1:(length(quantiles) - 1)],
+                            include.lowest=TRUE)
+
+kmeans_result <- kmeans(senegal_c$DataCards, centers = 4)
+senegal_c$cluster_id <- factor(kmeans_result$cluster)
+cluster_means <- aggregate(senegal_c$DataCards, by = list(senegal_c$cluster_id), FUN = mean)
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+
+senegal_c$cluster_label <- label_mapping[match(senegal_c$cluster_id, sorted_clusters$Group.1)]
+```
+
+
+```{r}
+tunisia_c$Severity_Class <- ifelse(tunisia_c$Event_Severity >= mean(tunisia_c$Event_Severity), "High Severity", "Low Severity")
+year_quantiles <- quantile(tunisia_c$Year, probs = c(0, 1/3, 2/3, 1))
+
+tunisia_c$Temporal_Class <- cut(tunisia_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+tunisia_c$Combined_Impact <- rowSums(subset(tunisia_c, select = c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+quantiles <- quantile(tunisia_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+quantiles <- unique(quantiles)
+
+labels <- c("Minimal Impact", "Moderate Impact", "Severe Impact", "Very Severe Impact")
+tunisia_c$Impact_Class <- cut(tunisia_c$Combined_Impact,
+                            breaks = quantiles,
+                            labels = labels[1:(length(quantiles) - 1)],
+                            include.lowest=TRUE)
+kmeans_result <- kmeans(tunisia_c$DataCards, centers = 4)
+tunisia_c$cluster_id <- factor(kmeans_result$cluster)
+cluster_means <- aggregate(tunisia_c$DataCards, by = list(tunisia_c$cluster_id), FUN = mean)
+
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+
+tunisia_c$cluster_label <- label_mapping[match(tunisia_c$cluster_id, sorted_clusters$Group.1)]
+```
+
+
+```{r}
+combined_data_africa <- rbind(
+  data.frame(Country = "tanzania", Severity_Class = tanzania_c$Severity_Class, Temporal_Class =tanzania_c$Temporal_Class, Impact_Class = tanzania_c$Impact_Class,  cluster_id =  tanzania_c$cluster_label, Year = tanzania_c$Year ),
+  data.frame(Country = "zambia", Severity_Class = zambia_c$Severity_Class, Temporal_Class =zambia_c$Temporal_Class, Impact_Class = zambia_c$Impact_Class, cluster_id =  zambia_c$cluster_label, Year = zambia_c$Year),
+  data.frame(Country = "uganda", Severity_Class = uganda_c$Severity_Class, Temporal_Class =uganda_c$Temporal_Class, Impact_Class = uganda_c$Impact_Class, cluster_id =  uganda_c$cluster_label, Year = uganda_c$Year),
+  data.frame(Country = "tunisia", Severity_Class = tunisia_c$Severity_Class, Temporal_Class =tunisia_c$Temporal_Class, Impact_Class = tunisia_c$Impact_Class,  cluster_id =  tunisia_c$cluster_label, Year = tunisia_c$Year ),
+  data.frame(Country = "senegal", Severity_Class =senegal_c$Severity_Class, Temporal_Class =senegal_c$Temporal_Class, Impact_Class = senegal_c$Impact_Class, cluster_id =  senegal_c$cluster_label, Year =senegal_c$Year)
+  
+)
+
+```
+
+
+```{r}
+classify_disaster <- function(severity, impact, cluster) {
+  risk_level <- character(length = length(severity))
+  
+for (i in 1:length(severity)) {
+    if (severity[i] == "High Severity") {
+      if (impact[i] == "Very Severe Impact") {
+        risk_level[i] <- "Extremely High Risk"
+      } else if (impact[i] == "Severe Impact") {
+        risk_level[i] <- "Very High Risk"
+      } else if (impact[i] == "Moderate Impact") {
+        risk_level[i] <- "High-Moderate Risk"
+      } else {
+        risk_level[i] <- "High-Low Risk"
+      }
+    } else if (severity[i] == "Low Severity") {
+      if (impact[i] == "Severe Impact") {
+        risk_level[i] <- "Moderate-High Risk"
+      } else if (impact[i] == "Moderate Impact") {
+        risk_level[i] <- "Moderate Risk"
+      } else {
+        risk_level[i] <- "Low Risk"
+      }
+    } else if (impact[i] == "Severe Impact") {
+      risk_level[i] <- "High Risk"
+    } else if (cluster[i] == "Most DataCards") {
+      risk_level[i] <- "Clustered Risk"
+    } else if (cluster[i] == "Moderately High DataCards") {
+      risk_level[i] <- "Moderately High DataCards Risk"
+    } else if (cluster[i] == "Moderately Less DataCards") {
+      risk_level[i] <- "Moderately Less DataCards Risk"
+    } else if (cluster[i] == "Least DataCards") {
+      risk_level[i] <- "Least DataCards Risk"
+    } else {
+      risk_level[i] <- "Undefined Risk"
+    }
+  }
+  
+  return(risk_level)
+}
+
+combined_data_africa$Disaster_Risk <- classify_disaster(
+  combined_data_africa$Severity_Class,
+  combined_data_africa$Impact_Class,
+  combined_data_africa$cluster_id
+)
+
+
+```
+
+
+```{r}
+combined_data_africa$Year <- as.factor(combined_data_africa$Temporal_Class)
+
+heatmap_africa <- ggplot(combined_data_africa, aes(x = Year, y = Country, fill = Disaster_Risk)) +
+  geom_tile() +
+  scale_fill_manual(values = c(
+    "Extremely High Risk" = "red",
+    "Very High Risk" = "orange",
+    "High-Moderate Risk" = "yellow",
+    "High-Low Risk" = "yellowgreen",
+    "Moderate-High Risk" = "green",
+    "Moderate Risk" = "lightblue",
+    "Low Risk" = "blue",
+    "High Risk" = "purple",
+    "Clustered Risk" = "skyblue",
+    "Moderately High DataCards Risk" = "pink",
+    "Moderately Less DataCards Risk" = "violet",
+    "Least DataCards Risk" = "grey",
+    "Undefined Risk" = "white"
+  )) +
+  labs(
+    title = "Disaster Risk Heatmap",
+    x = "Year",
+    y = "Country",
+    fill = "Disaster Risk"
+  ) +
+  theme_minimal()
+print(heatmap_africa)
+```
+
+
+Cluster 2
+```{r}
+tanzania_c$Country <- "Tanzania"
+tunisia_c$Country <- "Tunisia"
+senegal_c$Country <- "Sengeal"
+zambia_c$Country <- "Zambia"
+uganda_c$Country <- "Uganda"
+
+africas <- rbind(tanzania_c,tunisia_c, senegal_c, zambia_c, uganda_c)
+africas$cluster_id <- as.integer(as.character(africas$cluster_id))
+data_for_clustering <-africas[, c("cluster_id", "Deaths", "Monetary.LossUSD")]
+
+scaled_data <- scale(data_for_clustering)
+
+set.seed(123) 
+clara_output <- clara(scaled_data, k = 4, samples = 500)
+colors <- rainbow(length(unique(clara_output$clustering)))
+
+scaled_data_with_clusters <- cbind(scaled_data, Cluster = clara_output$clustering)
+
+pairs(scaled_data_with_clusters[, -ncol(scaled_data_with_clusters)], 
+      col = colors[clara_output$clustering], pch = 19)
+
+legend("left", legend = unique(clara_output$clustering), fill = colors, title = "Clusters")
+
+
+```
