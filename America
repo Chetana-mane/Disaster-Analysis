@@ -1,0 +1,761 @@
+---
+title: "America"
+---
+```{r setup3, include = FALSE, purl = FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+## AMERICA
+Raw Data Reading
+
+```{r}
+
+guatemala <- read.csv("guatemala.csv",header=TRUE,na.strings=c(""))
+colnames(guatemala) <- gsub("^\\s+|\\s+$", "", colnames(guatemala))#
+
+drepublic <- read.csv("drepublic.csv",header=TRUE,na.strings=c(""))
+colnames(drepublic) <- gsub("^\\s+|\\s+$", "", colnames(drepublic))
+
+mexico <- read.csv("mexico.csv",header=TRUE,na.strings=c(""))
+colnames(mexico) <- gsub("^\\s+|\\s+$", "", colnames(mexico))
+
+```
+
+Data PreProcessing: Missing Values, Duplicate Values
+```{r}
+
+print("Total Missing Values: ")
+print(paste("Guatemala: ",sum(is.na(guatemala))))
+print(paste("Drepublic: ",sum(is.na(drepublic))))
+print(paste("Mexico: ",sum(is.na(mexico))))
+```
+
+
+```{r}
+       
+guatemala <- na.omit(guatemala, cols = c('Event'))
+        
+drepublic <- na.omit(drepublic, cols = c('Event'))
+       
+mexico <- na.omit(mexico, cols = c('Event'))
+```
+
+
+```{r}
+print("Total Missing Values: ")
+print(paste("Guatemala: ",sum(is.na(guatemala))))
+print(paste("Drepublic: ",sum(is.na(drepublic))))
+print(paste("Mexico: ",sum(is.na(mexico))))
+```
+
+
+```{r}
+print("Total Duplicate values")
+print(paste("Guatemala: ", sum(duplicated(guatemala))))
+print(paste("DRepublic: ", sum(duplicated(drepublic))))
+print(paste("Mexico: ", sum(duplicated(mexico))))
+```
+
+
+```{r}
+guatemala$Event <- toupper(guatemala$Event)
+drepublic$Event <- toupper(drepublic$Event)
+mexico$Event <- toupper(mexico$Event)
+```
+
+
+```{r}
+
+unique_events <- unique(mexico$Event)
+
+translation_dict <- c(
+  "HAMBRUNA" = "FAMINE",
+  "RACIONAMIENTO" = "RATIONING",
+  "ONDA FRÍA" = "COLD WAVE",
+  "INTOXICACIÓN" = "INTOXICATION",
+  "HUNDIMIENTO" = "SINKING"
+)
+translate_mexican_to_english <- function(text) {
+  cleaned_text <- toupper(trimws(text))  
+  translated_text <- ifelse(cleaned_text %in% names(translation_dict), translation_dict[[cleaned_text]], text)
+  return(translated_text)
+}
+
+mexico$Event <- sapply(mexico$Event, translate_mexican_to_english)
+
+
+```
+
+Data Tranformation
+```{r}
+guatemala$Houses.Ruined <- guatemala$Houses.Destroyed + guatemala$Houses.Damaged
+guatemala$Affected <-guatemala$Directly.affected + guatemala$Indirectly.Affected
+
+guatemala$Monetary.LossUSD<- guatemala$Losses..USD + guatemala$Losses..Local * (0.13)
+guatemala$Monetary.LossUSD <- as.integer(guatemala$Monetary.LossUSD)
+
+guatemala= select(guatemala, -5:-10)
+head(guatemala)
+summary(guatemala)
+
+
+```
+
+
+```{r}
+drepublic$Houses.Ruined <- drepublic$Houses.Destroyed +drepublic$Houses.Damaged
+drepublic$Affected <-drepublic$Directly.affected + drepublic$Indirectly.Affected
+
+drepublic$Monetary.LossUSD<- drepublic$Losses..USD + drepublic$Losses..Local * (0.017)
+drepublic$Monetary.LossUSD <- as.integer(drepublic$Monetary.LossUSD)
+
+drepublic= select(drepublic, -5:-10)
+head(drepublic)
+summary(drepublic)
+```
+
+
+```{r}
+mexico$Houses.Ruined <-mexico$Houses.Destroyed + mexico$Houses.Damaged
+mexico$Affected <-mexico$Directly.affected + mexico$Indirectly.Affected
+
+mexico$Monetary.LossUSD<-mexico$Losses..USD + mexico$Losses..Local * (0.060)
+mexico$Monetary.LossUSD <- as.integer(mexico$Monetary.LossUSD)
+# AS There were 19 values higher than e9
+mexico$Monetary.LossUSD[is.na(mexico$Monetary.LossUSD)] <- max(mexico$Monetary.LossUSD, na.rm = TRUE)
+mexico= select(mexico, -5:-10)
+summary(mexico)
+```
+
+Feature Addition 1
+```{r}
+add_Event_Severity <- function(data) {
+  data$Event_Severity <- data$Deaths / data$DataCards
+  
+  a_countries <- c("mexico")
+  b_countries <- c("guatemala", "drepublic")
+  
+  for (country in a_countries) {
+    data$Event_Severity[data$Country == country & data$Event_Severity > 1] <- 1
+    data$Event_Severity[data$Country == country & data$Event_Severity < 0.5] <- 0.5
+  }
+  
+  for (country in b_countries) {
+    data$Event_Severity[data$Country == country & data$Event_Severity > 2] <- 2
+    data$Event_Severity[data$Country == country & data$Event_Severity < 1] <- 1
+  }
+  data$Event_Severity <- round(data$Event_Severity * 100)
+  return(data$Event_Severity)
+}
+
+guatemala$Event_Severity <- add_Event_Severity(guatemala)
+drepublic$Event_Severity <- add_Event_Severity(drepublic)
+mexico$Event_Severity <- add_Event_Severity(mexico)
+```
+
+Feature Addition 2
+```{r}
+guatemala$Event_factor<-as.integer(as.factor(guatemala$Event))
+drepublic$Event_factor<-as.integer(as.factor(drepublic$Event))
+mexico$Event_factor<-as.integer(as.factor(mexico$Event))
+```
+
+Write Cleaned csv
+```{r}
+write.csv(guatemala, file = "guatemala_cleaned.csv", row.names = FALSE)
+write.csv(drepublic, file = "drepublic_cleaned.csv", row.names = FALSE)
+write.csv(mexico, file = "mexico_cleaned.csv", row.names = FALSE)
+```
+
+Read Cleaned csv
+```{r}
+guatemala_c <- read.csv("guatemala_cleaned.csv",header=TRUE)
+drepublic_c <- read.csv("drepublic_cleaned.csv",header=TRUE)
+mexico_c <- read.csv("mexico_cleaned.csv",header=TRUE)
+```
+
+Combining into America
+```{r}
+america <- rbind(guatemala_c,drepublic_c,mexico_c)
+```
+
+#Preprocessing Visualization America
+```{r}
+america_perc <- america %>%
+  mutate(
+    Total = DataCards + Deaths + `Houses.Ruined` + Affected,
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = `Houses.Ruined` / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+america_long <- america_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+threshold <- 50
+
+filtered_america_long <- america_long %>%
+  group_by(Event) %>%
+  summarise(Total_Percentage = sum(Percentage)) %>%
+  filter(Total_Percentage > threshold) %>%
+  inner_join(america_long, by = "Event") %>%
+  ungroup()
+
+ggplot(filtered_america_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (america)")
+
+
+```
+
+Preprocessing Visualization
+```{r}
+guatemala_c<- guatemala_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ guatemala_c_perc <- guatemala_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+guatemala_c_long <-  guatemala_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( guatemala_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +  # Separate pie for each factor
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (guatemala)")
+```
+
+
+```{r}
+drepublic_c<- drepublic_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+drepublic_c_perc <- drepublic_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ drepublic_c_long <-  drepublic_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( drepublic_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +  # Separate pie for each factor
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (D Republic)")
+```
+
+
+```{r}
+mexico_c<- mexico_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ mexico_c_perc <- mexico_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ mexico_c_long <-  mexico_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( mexico_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +  # Separate pie for each factor
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (Mexico)")
+```
+
+Split(America) and parameter
+```{r}
+# Get only numeric Values
+numeric_data <- america [, sapply(america , is.numeric)]
+
+# find PCA
+scaled_data <- scale(numeric_data)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+formula <- numeric_data$Deaths ~ numeric_data$DataCards + numeric_data$Deaths + numeric_data$Monetary.LossUSD + numeric_data$Event_Severity + numeric_data$Houses.Ruined + numeric_data$Affected
+  model <- lm(formula, data = numeric_data)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+#check for correlation matrix 
+cor_matrix <- cor(numeric_data)
+print("Correlation matrix ")
+print(cor_matrix)
+set.seed(123)
+split_indices <- createDataPartition(america$Year, p = 0.7, list = FALSE)
+
+training_data_america  <- numeric_data[split_indices, ]
+testing_data_america  <- numeric_data[-split_indices, ]
+
+```
+
+Model 1 enet on death ~ !Event - 28 % accuracy
+```{r}
+train_data <- training_data_america 
+test_data <-  testing_data_america 
+
+X_train <- as.matrix(subset(train_data, select =- c(Deaths)))
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Deaths)))
+y_test <- test_data$Deaths
+
+X_train_std <- scale(X_train)
+X_test_std <- scale(X_test)
+
+enet_model_combined<- cv.glmnet(X_train_std, y_train, alpha = 0.5) 
+
+best_lambda <- enet_model_combined$lambda.min
+
+y_pred <- predict(enet_model_combined, newx = X_test_std, s = best_lambda)
+
+mse <- mean((y_pred - y_test)^2)
+rsquared <- cor(y_pred, y_test)^2
+
+cat("Best Lambda:", best_lambda, "\n")
+cat("Mean Squared Error:", mse, "\n")
+cat("R-squared:", rsquared, "\n")
+```
+
+#Model 2 random forest on death ~ !Event - 44% accuracy
+```{r}
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+
+```
+
+Split(Indivisual) 
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(guatemala_c$Year, p = 0.7, list = FALSE)
+
+training_data_guatemala <- guatemala_c[split_indices, ]
+testing_data_guatemala <- guatemala_c[-split_indices, ]
+```
+
+
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(drepublic_c$Year, p = 0.7, list = FALSE)
+
+training_data_drepublic <- drepublic_c[split_indices, ]
+testing_data_drepublic <- drepublic_c[-split_indices, ]
+```
+
+
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(mexico_c$Year, p = 0.7, list = FALSE)
+
+training_data_mexico <- mexico_c[split_indices, ]
+testing_data_mexico <- mexico_c[-split_indices, ]
+```
+
+PCA VIF AND CORR MATRIX 
+```{r}
+guatemala_no_event <- guatemala_c[, !names(guatemala_c) %in% c("Event", "Monetary.LossUSD")]
+scaled_data <- scale(guatemala_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- guatemala_c$Deaths ~ guatemala_c$DataCards + guatemala_c$Deaths + guatemala_c$Event_Severity + guatemala_c$Houses.Ruined + guatemala_c$Affected
+  model <- lm(formula, data = guatemala_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(guatemala_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+```
+
+
+```{r}
+drepublic_no_event <- drepublic_c[, !names(drepublic_c) %in% c("Event")]
+scaled_data <- scale(drepublic_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- drepublic_c$Deaths ~ drepublic_c$DataCards +drepublic_c$Monetary.LossUSD +drepublic_c$Deaths + drepublic_c$Event_Severity + drepublic_c$Houses.Ruined + drepublic_c$Affected
+  model <- lm(formula, data = drepublic_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(drepublic_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+```
+
+
+```{r}
+mexico_no_event <- mexico_c[, !names(mexico_c) %in% c("Event")]
+scaled_data <- scale(mexico_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- mexico_c$Deaths ~ mexico_c$DataCards + mexico_c$Deaths +mexico_c$Monetary.LossUSD+ mexico_c$Event_Severity + mexico_c$Houses.Ruined + mexico_c$Affected
+  model <- lm(formula, data = mexico_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(mexico_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+```
+
+Regression Model and Visual
+Guatemala - Model 2- 0.62 death ~ - c(Event, Deaths)
+```{r}
+y <- training_data_guatemala$Deaths
+X <- subset(training_data_guatemala, select = - c(Event,Deaths))  
+
+train_data <- training_data_guatemala
+test_data <-  testing_data_guatemala
+
+X_train <- as.matrix(subset(train_data, select = - c(Event,Deaths))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths)))
+y_test <- test_data$Deaths
+
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+```
+
+Dominican Republic  model 2 - 0.54 death ~ - c(Event, Deaths) model 1 perform 0.88
+```{r}
+y <- training_data_drepublic$Deaths
+X <- subset(training_data_drepublic, select =-  c(Event, Deaths))  # Selecting features not to include
+
+train_data <- training_data_drepublic
+test_data <-  testing_data_drepublic
+
+X_train <- as.matrix(subset(train_data, select = - c(Event,Deaths))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths)))
+y_test <- test_data$Deaths
+
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+```
+
+Mexico  model 2 - 0.70 death ~ - c(Event, Deaths) model 1 perform 0.98
+```{r}
+y <- training_data_mexico$Deaths
+X <- subset(training_data_mexico, select =-  c(Event, Deaths) )  # Selecting features not to include
+
+train_data <- training_data_mexico
+test_data <-  testing_data_mexico
+
+X_train <- as.matrix(subset(train_data, select = - c(Event,Deaths))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths)))
+y_test <- test_data$Deaths
+
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+```
+
+#Cluster 1
+```{r}
+guatemala_c$Severity_Class <- ifelse(guatemala_c$Event_Severity >= mean(guatemala_c$Event_Severity), "High Severity", "Low Severity")
+
+year_quantiles <- quantile(guatemala_c$Year, probs = c(0, 1/3, 2/3, 1))
+
+guatemala_c$Temporal_Class <- cut(guatemala_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+guatemala_c$Combined_Impact <- rowSums(subset(guatemala_c, select =  c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+
+quantiles <- quantile(guatemala_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+
+guatemala_c$Impact_Class <- cut(guatemala_c$Combined_Impact,
+                                breaks = quantiles,
+                                labels = c("Minimal Impact", "Moderate Impact", "Severe Impact"),
+                                include.lowest = TRUE)
+
+
+kmeans_result <- kmeans(guatemala_c$DataCards, centers = 4)
+guatemala_c$cluster_id <- factor(kmeans_result$cluster)
+
+cluster_means <- aggregate(guatemala_c$DataCards, by = list(guatemala_c$cluster_id), FUN = mean)
+
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+
+guatemala_c$cluster_label <- label_mapping[match(guatemala_c$cluster_id, sorted_clusters$Group.1)]
+
+```
+
+
+```{r}
+drepublic_c$Severity_Class <- ifelse(drepublic_c$Event_Severity >= mean(drepublic_c$Event_Severity), "High Severity", "Low Severity")
+
+year_quantiles <- quantile(drepublic_c$Year, probs = c(0, 1/3, 2/3, 1))
+
+drepublic_c$Temporal_Class <- cut(drepublic_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+drepublic_c$Combined_Impact <- rowSums(subset(drepublic_c, select =  c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+
+quantiles <- quantile(drepublic_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+
+quantiles <- unique(quantiles)
+
+labels <- c("Minimal Impact", "Moderate Impact", "Severe Impact", "Very Severe Impact")
+drepublic_c$Impact_Class <- cut(drepublic_c$Combined_Impact,
+                            breaks = quantiles,
+                            labels = labels[1:(length(quantiles) - 1)],
+                            include.lowest = TRUE)
+
+kmeans_result <- kmeans(drepublic_c$DataCards, centers = 4)
+drepublic_c$cluster_id <- factor(kmeans_result$cluster)
+
+cluster_means <- aggregate(drepublic_c$DataCards, by = list(drepublic_c$cluster_id), FUN = mean)
+
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+
+drepublic_c$cluster_label <- label_mapping[match(drepublic_c$cluster_id, sorted_clusters$Group.1)]
+
+```
+
+
+```{r}
+mexico_c$Severity_Class <- ifelse(mexico_c$Event_Severity >= mean(mexico_c$Event_Severity), "High Severity", "Low Severity")
+
+year_quantiles <- quantile(mexico_c$Year, probs = c(0, 1/3, 2/3, 1))
+
+mexico_c$Temporal_Class <- cut(mexico_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+mexico_c$Combined_Impact <- rowSums(subset(mexico_c, select =  c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+
+quantiles <- quantile(mexico_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+mexico_c$Impact_Class <- cut(mexico_c$Combined_Impact,
+                                breaks = quantiles,
+                                labels = c("Minimal Impact", "Moderate Impact", "Severe Impact"),
+                                include.lowest = TRUE)
+
+
+kmeans_result <- kmeans(mexico_c$DataCards, centers = 4)
+mexico_c$cluster_id <- factor(kmeans_result$cluster)
+
+cluster_means <- aggregate(mexico_c$DataCards, by = list(mexico_c$cluster_id), FUN = mean)
+
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+
+mexico_c$cluster_label <- label_mapping[match(mexico_c$cluster_id, sorted_clusters$Group.1)]
+
+```
+
+
+```{r}
+combined_data_america <- rbind(
+  data.frame(Country = "Guatemala", Severity_Class = guatemala_c$Severity_Class, Temporal_Class =guatemala_c$Temporal_Class, Impact_Class = guatemala_c$Impact_Class,  cluster_id =  guatemala_c$cluster_label, Year = guatemala_c$Year ),
+  data.frame(Country = "Dominican Republic", Severity_Class = drepublic_c$Severity_Class, Temporal_Class =drepublic_c$Temporal_Class, Impact_Class = drepublic_c$Impact_Class, cluster_id =  drepublic_c$cluster_label, Year = drepublic_c$Year),
+  data.frame(Country = "Mexico", Severity_Class = mexico_c$Severity_Class, Temporal_Class =mexico_c$Temporal_Class, Impact_Class = mexico_c$Impact_Class, cluster_id =  mexico_c$cluster_label, Year = mexico_c$Year)
+)
+```
+
+
+```{r}
+classify_disaster <- function(severity, impact, cluster) {
+  risk_level <- character(length = length(severity))
+  
+ for (i in 1:length(severity)) {
+    if (severity[i] == "High Severity") {
+      if (impact[i] == "Very Severe Impact") {
+        risk_level[i] <- "Extremely High Risk"
+      } else if (impact[i] == "Severe Impact") {
+        risk_level[i] <- "Very High Risk"
+      } else if (impact[i] == "Moderate Impact") {
+        risk_level[i] <- "High-Moderate Risk"
+      } else {
+        risk_level[i] <- "High-Low Risk"
+      }
+    } else if (severity[i] == "Low Severity") {
+      if (impact[i] == "Severe Impact") {
+        risk_level[i] <- "Moderate-High Risk"
+      } else if (impact[i] == "Moderate Impact") {
+        risk_level[i] <- "Moderate Risk"
+      } else {
+        risk_level[i] <- "Low Risk"
+      }
+    } else if (impact[i] == "Severe Impact") {
+      risk_level[i] <- "High Risk"
+    } else if (cluster[i] == "Most DataCards") {
+      risk_level[i] <- "Clustered Risk"
+    } else if (cluster[i] == "Moderately High DataCards") {
+      risk_level[i] <- "Moderately High DataCards Risk"
+    } else if (cluster[i] == "Moderately Less DataCards") {
+      risk_level[i] <- "Moderately Less DataCards Risk"
+    } else if (cluster[i] == "Least DataCards") {
+      risk_level[i] <- "Least DataCards Risk"
+    } else {
+      risk_level[i] <- "Undefined Risk"
+    }
+  }
+  
+  return(risk_level)
+}
+
+combined_data_america$Disaster_Risk <- classify_disaster(
+combined_data_america$Severity_Class,
+combined_data_america$Impact_Class,
+combined_data_america$cluster_id
+)
+
+
+```
+
+
+```{r}
+combined_data_america$Year <- as.factor(combined_data_america$Temporal_Class)
+
+heatmap_america <- ggplot(combined_data_america, aes(x = Year, y = Country, fill = Disaster_Risk)) +
+  geom_tile() +
+  scale_fill_manual(values = c(
+    "Extremely High Risk" = "red",
+    "Very High Risk" = "orange",
+    "High-Moderate Risk" = "yellow",
+    "High-Low Risk" = "yellowgreen",
+    "Moderate-High Risk" = "green",
+    "Moderate Risk" = "lightblue",
+    "Low Risk" = "blue",
+    "High Risk" = "purple",
+    "Clustered Risk" = "skyblue",
+    "Moderately High DataCards Risk" = "pink",
+    "Moderately Less DataCards Risk" = "violet",
+    "Least DataCards Risk" = "grey",
+    "Undefined Risk" = "white"
+  )) +
+  labs(
+    title = "Disaster Risk Heatmap",
+    x = "Year",
+    y = "Country",
+    fill = "Disaster Risk"
+  ) +
+  theme_minimal()
+print(heatmap_america)
+
+
+```
+
+#Cluster 2
+```{r}
+guatemala_c$Country <- "Guatemala"
+drepublic_c$Country <- "Drepublic"
+mexico_c$Country <- "Mexico"
+
+americas <- rbind(guatemala_c, drepublic_c, mexico_c)
+americas$cluster_id <- as.integer(as.character(americas$cluster_id))
+data_for_clustering <-americas[, c("cluster_id", "Deaths", "Monetary.LossUSD")]
+scaled_data <- scale(data_for_clustering)
+
+set.seed(123) 
+clara_output <- clara(scaled_data, k = 4, samples = 500)
+colors <- rainbow(length(unique(clara_output$clustering)))
+
+scaled_data_with_clusters <- cbind(scaled_data, Cluster = clara_output$clustering)
+
+pairs(scaled_data_with_clusters[, -ncol(scaled_data_with_clusters)], 
+      col = colors[clara_output$clustering], pch = 19)
+
+legend("left", legend = unique(clara_output$clustering), fill = colors, title = "Clusters")
+```
