@@ -1,0 +1,1042 @@
+---
+title: "Asia"
+---
+
+```{r setup1, include = FALSE, purl = FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+## ASIA
+Raw Data Reading
+```{r}
+turkey <- read.csv("turkey.csv",header=TRUE,na.strings=c(""))
+colnames(turkey) <- gsub("^\\s+|\\s+$", "", colnames(turkey))
+vietnam <- read.csv("vietnam.csv",header=TRUE,na.strings=c(""))
+colnames(vietnam) <- gsub("^\\s+|\\s+$", "", colnames(vietnam))
+yemen <- read.csv("yemen.csv",header=TRUE,na.strings=c(""))
+colnames(yemen) <- gsub("^\\s+|\\s+$", "", colnames(yemen))
+pakistan <- read.csv("pakistan.csv",header=TRUE,na.strings=c(""))
+colnames(pakistan) <- gsub("^\\s+|\\s+$", "", colnames(pakistan))
+srilanka <- read.csv("srilanka.csv",header=TRUE,na.strings=c(""))
+colnames(srilanka ) <- gsub("^\\s+|\\s+$", "", colnames(yemen))
+
+
+```
+
+Data PreProcessing: Missing Values, Duplicate Values
+```{r}
+
+print("Total Missing Values: ")
+print(paste("Turkey: ",sum(is.na(turkey))))
+print(paste("Vietnam: ",sum(is.na(vietnam))))
+print(paste("Yemen: ",sum(is.na(yemen))))
+print(paste("Pakistan: ",sum(is.na(pakistan))))
+print(paste("Srilanka: ",sum(is.na(srilanka))))
+
+
+```
+
+
+```{r}
+  
+turkey <- na.omit(turkey, cols = c('Event'))
+vietnam <- na.omit(vietnam, cols = c('Event', 'Directly.affected', 'Losses..USD'))
+yemen <- na.omit(yemen, cols = c('Event', 'Losses..USD'))
+pakistan <- na.omit(pakistan, cols = c('Event', 'Losses..USD' , 'Losses..Local'))
+srilanka <- na.omit(srilanka, cols = c('Event', 'Directly.affected', 'Losses..USD'))
+```
+
+
+```{r}
+print("Total Missing Values: ")
+print(paste("Turkey: ",sum(is.na(turkey))))
+print(paste("Vietnam: ",sum(is.na(vietnam))))
+print(paste("Yemen: ",sum(is.na(yemen))))
+print(paste("Pakistan: ",sum(is.na(pakistan))))
+print(paste("Srilanka: ",sum(is.na(srilanka))))
+
+```
+
+
+```{r}
+print("Total Duplicate values")
+print(paste("Turkey: ", sum(duplicated(turkey))))
+print(paste("Vietnam: ", sum(duplicated(vietnam))))
+print(paste("Yemen: ", sum(duplicated(yemen))))
+print(paste("Pakistan: ",sum(duplicated(pakistan))))
+print(paste("Srilanka: ",sum(duplicated(srilanka))))
+```
+
+cleaning text in Event
+```{r}
+turkey$Event <- toupper(turkey$Event)
+vietnam$Event <- toupper(vietnam$Event)
+yemen$Event <- toupper(yemen$Event)
+pakistan$Event <- toupper(pakistan$Event)
+srilanka$Event <- toupper(srilanka$Event)
+
+```
+
+Data Tranformation
+```{r}
+turkey$Houses.Ruined <-turkey$Houses.Destroyed + turkey$Houses.Damaged
+turkey$Affected <-turkey$Directly.affected + turkey$Indirectly.Affected
+
+turkey$Monetary.LossUSD<-turkey$Losses..USD + turkey$Losses..Local * (0.035)
+turkey$Monetary.LossUSD <- as.integer(turkey$Monetary.LossUSD)
+
+# AS There were 19 values highter than e9
+max_value <- max(turkey$Monetary.LossUSD, na.rm = TRUE)
+turkey$Monetary.LossUSD[is.na(turkey$Monetary.LossUSD)] <- max_value
+turkey = select(turkey, -5:-10)
+head(turkey)
+summary(turkey)
+```
+
+
+```{r}
+vietnam$Houses.Ruined <-vietnam$Houses.Destroyed + vietnam$Houses.Damaged
+vietnam$Affected <-vietnam$Directly.affected + vietnam$Indirectly.Affected
+
+vietnam$Monetary.LossUSD<-vietnam$Losses..USD + vietnam$Losses..Local * (0.00004)
+vietnam$Monetary.LossUSD <- as.integer(vietnam$Monetary.LossUSD)
+
+vietnam = select(vietnam, -5:-10)
+head(vietnam)
+summary(vietnam)
+
+```
+
+
+```{r}
+yemen$Houses.Ruined <-yemen$Houses.Destroyed + yemen$Houses.Damaged
+yemen$Affected <-yemen$Directly.affected + yemen$Indirectly.Affected
+
+yemen$Monetary.LossUSD<-yemen$Losses..USD + yemen$Losses..Local * (0.0040)
+yemen$Monetary.LossUSD <- as.integer(yemen$Monetary.LossUSD)
+
+yemen = select(yemen, -5:-10)
+head(yemen)
+summary(yemen)
+
+```
+
+
+```{r}
+pakistan$Houses.Ruined <-pakistan$Houses.Destroyed + pakistan$Houses.Damaged
+pakistan$Affected <-pakistan$Directly.affected + pakistan$Indirectly.Affected
+
+pakistan$Monetary.LossUSD<-pakistan$Losses..USD + pakistan$Losses..Local * (0.003)
+pakistan$Monetary.LossUSD <- as.integer(pakistan$Monetary.LossUSD)
+
+pakistan = select(pakistan, -5:-10)
+head(pakistan)
+summary(pakistan)
+```
+
+
+```{r}
+srilanka$Houses.Ruined <-srilanka$Houses.Destroyed + srilanka$Houses.Damaged
+srilanka$Affected <-srilanka$Directly.affected + srilanka$Indirectly.Affected
+
+srilanka$Monetary.LossUSD<-srilanka$Losses..USD + srilanka$Losses..Local * (0.003)
+srilanka$Monetary.LossUSD <- as.integer(srilanka$Monetary.LossUSD)
+
+srilanka = select(srilanka, -5:-10)
+head(srilanka)
+summary(srilanka)
+```
+
+Feature Addition 1
+```{r}
+add_Event_Severity <- function(data) {
+  data$Event_Severity <- data$Deaths / data$DataCards
+  
+  a_countries <- c("turkey", "vietnam", "pakistan")
+  b_countries <- c("yemen", "srilanka")
+  
+  for (country in a_countries) {
+    data$Event_Severity[data$Country == country & data$Event_Severity > 1] <- 1
+    data$Event_Severity[data$Country == country & data$Event_Severity < 0.5] <- 0.5
+  }
+  
+
+  for (country in b_countries) {
+    data$Event_Severity[data$Country == country & data$Event_Severity > 2] <- 2
+    data$Event_Severity[data$Country == country & data$Event_Severity < 1] <- 1
+  }
+  data$Event_Severity <- round(data$Event_Severity * 100)
+  return(data$Event_Severity)
+}
+
+turkey$Event_Severity <- add_Event_Severity(turkey)
+vietnam$Event_Severity <- add_Event_Severity(vietnam)
+pakistan$Event_Severity <- add_Event_Severity(pakistan)
+yemen$Event_Severity<- add_Event_Severity(yemen)
+srilanka$Event_Severity <- add_Event_Severity(srilanka)
+head(turkey)
+
+
+```
+
+Feature Addition 2
+```{r}
+turkey$Event_factor<-as.integer(as.factor(turkey$Event))
+vietnam$Event_factor<-as.integer(as.factor(vietnam$Event))
+yemen$Event_factor<-as.integer(as.factor(yemen$Event))
+pakistan$Event_factor<-as.integer(as.factor(pakistan$Event))
+srilanka$Event_factor<-as.integer(as.factor(srilanka$Event))
+
+```
+
+Write Cleaned csv
+```{r}
+write.csv(turkey, file = "turkey_cleaned.csv", row.names = FALSE)
+write.csv(vietnam, file = "vietnam_cleaned.csv", row.names = FALSE)
+write.csv(yemen, file = "yemen_cleaned.csv", row.names = FALSE)
+write.csv(pakistan, file = "pakistan_cleaned.csv", row.names = FALSE)
+write.csv(srilanka, file = "srilanka_cleaned.csv", row.names = FALSE)
+```
+
+Read Cleaned csv
+```{r}
+turkey_c <- read.csv("turkey_cleaned.csv",header=TRUE)
+vietnam_c <- read.csv("vietnam_cleaned.csv",header=TRUE)
+yemen_c <- read.csv("yemen_cleaned.csv",header=TRUE)
+pakistan_c <- read.csv("pakistan_cleaned.csv",header=TRUE)
+srilanka_c <- read.csv("srilanka_cleaned.csv",header=TRUE)
+```
+
+Combining into one continent
+```{r}
+asia <- rbind(turkey_c, vietnam_c, yemen_c, pakistan_c, srilanka_c)
+
+```
+
+#Preprocessing Visualization (Asia)
+```{r}
+asia_perc <- asia %>%
+  mutate(
+    Total = DataCards + Deaths + `Houses.Ruined` + Affected,
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = `Houses.Ruined` / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+asia_long <- asia_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+threshold <- 50
+
+filtered_asia_long <- asia_long %>%
+  group_by(Event) %>%
+  summarise(Total_Percentage = sum(Percentage)) %>%
+  filter(Total_Percentage > threshold) %>%
+  inner_join(asia_long, by = "Event") %>%
+  ungroup()
+
+ggplot(filtered_asia_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (Asia)")
+
+
+```
+
+Preprocessing Visualization(individual)
+```{r}
+turkey_c <- turkey_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+turkey_c_perc <- turkey_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+turkey_c_long <- turkey_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot(turkey_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +  
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (turkey)")
+
+
+
+```
+
+
+```{r}
+ vietnam_c <- vietnam_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ vietnam_c_perc <- vietnam_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ vietnam_c_long <-  vietnam_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( vietnam_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) +  
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (Vietnam)")
+
+```
+
+
+```{r}
+yemen_c <- yemen_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ yemen_c_perc <- yemen_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ yemen_c_long <-  yemen_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( yemen_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) + 
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (Yemen)")
+
+```
+
+
+```{r}
+pakistan_c <- pakistan_c  %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ pakistan_c_perc <- pakistan_c  %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected / Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ pakistan_c_long <-  pakistan_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( pakistan_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) + 
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (pakistan)")
+```
+
+
+```{r}
+srilanka_c <- srilanka_c %>%
+  mutate(Total = DataCards + Deaths + Houses.Ruined + Affected)
+
+ srilanka_c_perc <- srilanka_c %>%
+  mutate(
+    DataCards_perc = DataCards / Total,
+    Deaths_perc = Deaths / Total,
+    Houses_Ruined_perc = Houses.Ruined / Total,
+    Affected_perc = Affected/ Total
+  ) %>%
+  select(Event, DataCards_perc, Deaths_perc, Houses_Ruined_perc, Affected_perc)
+
+ srilanka_c_long <-  srilanka_c_perc %>%
+  pivot_longer(cols = -Event, names_to = "Factor", values_to = "Percentage")
+
+ggplot( srilanka_c_long, aes(x = "", y = Percentage, fill = Event)) +
+  geom_bar(stat = "identity", width = 1) +
+  facet_wrap(~Factor) + 
+  coord_polar(theta = "y") +
+  theme_minimal() +
+  ggtitle("Event Distribution by Factor (Srilanka)")
+```
+
+Split(Asia) and parameter
+```{r}
+# Get only numeric Values
+numeric_data <- asia[, sapply(asia, is.numeric)]
+
+# find PCA
+scaled_data <- scale(numeric_data)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+formula <- numeric_data$Deaths ~ numeric_data$DataCards + numeric_data$Deaths + numeric_data$Monetary.LossUSD + numeric_data$Event_Severity + numeric_data$Houses.Ruined + numeric_data$Affected
+  model <- lm(formula, data = numeric_data)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+#check for correlation matrix 
+cor_matrix <- cor(numeric_data)
+print("Correlation matrix ")
+print(cor_matrix)
+set.seed(123)
+split_indices <- createDataPartition(asia$Year, p = 0.7, list = FALSE)
+
+training_data_asia <- numeric_data[split_indices, ]
+testing_data_asia <- numeric_data[-split_indices, ]
+
+```
+
+#Model 1 enet on death ~ !Event - 46 % accuracy
+```{r}
+train_data <- training_data_asia
+test_data <-  testing_data_asia
+
+X_train <- as.matrix(subset(train_data, select =- c(Deaths)))
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Deaths)))
+y_test <- test_data$Deaths
+
+X_train_std <- scale(X_train)
+X_test_std <- scale(X_test)
+
+enet_model_combined<- cv.glmnet(X_train_std, y_train, alpha = 0.5) 
+
+best_lambda <- enet_model_combined$lambda.min
+
+y_pred <- predict(enet_model_combined, newx = X_test_std, s = best_lambda)
+
+mse <- mean((y_pred - y_test)^2)
+rsquared <- cor(y_pred, y_test)^2
+
+cat("Best Lambda:", best_lambda, "\n")
+cat("Mean Squared Error:", mse, "\n")
+cat("R-squared:", rsquared, "\n")
+```
+
+Model 2 random forest on death ~ !Event - 40% accuracy
+```{r}
+rf_model_complex <- randomForest(
+  X_train, y_train,
+  ntree = 1000,     
+  mtry = sqrt(ncol(X_train)), 
+  max_depth = NULL
+)
+
+y_pred_rf_complex <- predict(rf_model_complex, X_test, type = "response")
+mse_rf_complex <- mean((y_pred_rf_complex - y_test)^2)
+rsquared_rf_complex <- cor(y_pred_rf_complex, y_test)^2
+
+cat("Random Forest- Mean Squared Error:", mse_rf_complex, "\n")
+cat("Random Forest - R-squared:", rsquared_rf_complex, "\n")
+
+```
+
+Split(individual)
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(turkey_c$Year, p = 0.7, list = FALSE)
+
+training_data_turkey <- turkey_c[split_indices, ]
+testing_data_turkey <- turkey_c[-split_indices, ]
+```
+
+
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(vietnam_c$Year, p = 0.7, list = FALSE)
+training_data_vietnam <- vietnam_c[split_indices, ]
+testing_data_vietnam <- vietnam_c[-split_indices, ]
+
+```
+
+
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(yemen_c$Year, p = 0.7, list = FALSE)
+training_data_yemen <- yemen_c[split_indices, ]
+testing_data_yemen <- yemen_c[-split_indices, ]
+```
+
+
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(pakistan_c$Year, p = 0.7, list = FALSE)
+training_data_pakistan <- pakistan_c[split_indices, ]
+testing_data_pakistan <- pakistan_c[-split_indices, ]
+```
+
+
+```{r}
+set.seed(123)
+split_indices <- createDataPartition(srilanka_c$Year, p = 0.7, list = FALSE)
+training_data_srilanka <- srilanka_c[split_indices, ]
+testing_data_srilanka <- srilanka_c[-split_indices, ]
+```
+
+PCA VIF AND CORR MATRIX (indivual)
+```{r}
+turkey_no_event <- turkey_c[, !names(turkey_c) %in% c("Event")]
+scaled_data <- scale(turkey_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- turkey_c$Deaths ~ turkey_c$DataCards + turkey_c$Deaths + turkey_c$Monetary.LossUSD + turkey_c$Event_Severity + turkey_c$Houses.Ruined + turkey_c$Affected
+  model <- lm(formula, data = turkey_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(turkey_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+
+```
+
+
+```{r}
+vietnam_no_event <- vietnam_c[, !names(vietnam_c) %in% c("Event")]
+scaled_data <- scale(turkey_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- vietnam_c$Deaths ~ vietnam_c$DataCards + vietnam_c$Deaths + vietnam_c$Monetary.LossUSD + vietnam_c$Event_Severity + vietnam_c$Houses.Ruined + vietnam_c$Affected
+  model <- lm(formula, data = turkey_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(vietnam_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+
+```
+
+
+```{r}
+yemen_no_event <- yemen_c[, !names(yemen_c) %in% c("Event")]
+scaled_data <- scale(yemen_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- yemen_c$Deaths ~ yemen_c$DataCards + yemen_c$Deaths + yemen_c$Monetary.LossUSD + yemen_c$Event_Severity + yemen_c$Houses.Ruined + yemen_c$Affected
+  model <- lm(formula, data = yemen_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(turkey_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+
+```
+
+
+```{r}
+pakistan_no_event <- pakistan_c[, !names(pakistan_c) %in% c("Event", "Monetary.LossUSD")]
+scaled_data <- scale(pakistan_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- pakistan_c$Deaths ~ pakistan_c$DataCards + pakistan_c$Deaths + pakistan_c$Event_Severity + pakistan_c$Houses.Ruined + pakistan_c$Affected
+  model <- lm(formula, data = pakistan_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(pakistan_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+
+```
+
+
+```{r}
+srilanka_no_event <- srilanka_c[, !names(srilanka_c) %in% c("Event")]
+scaled_data <- scale(srilanka_no_event)
+pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+summary(pca_result)
+
+formula <- srilanka_c$Deaths ~ srilanka_c$DataCards + srilanka_c$Deaths + srilanka_c$Monetary.LossUSD + srilanka_c$Event_Severity + srilanka_c$Houses.Ruined + srilanka_c$Affected
+  model <- lm(formula, data = srilanka_c)
+
+  vif_result <- car::vif(model)
+
+  cat("\n","VIF results for Deaths", ":\n")
+  print(vif_result)
+  cat("\n")
+  
+cor_matrix <- cor(srilanka_c[c("DataCards", "Deaths", "Monetary.LossUSD", "Event_Severity", "Houses.Ruined", "Affected")])
+print("Correlation matrix ")
+print(cor_matrix)
+
+```
+
+Regression Model and Visual
+Turkey  model 1 - 0.90 death ~ - c(Event, Deaths)
+```{r}
+train_data <- training_data_turkey
+test_data <-  testing_data_turkey
+
+X_train <- as.matrix(subset(train_data, select =- c(Event,Deaths)))
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths)))
+y_test <- test_data$Deaths
+
+X_train_std <- scale(X_train)
+X_test_std <- scale(X_test)
+
+enet_model_turkey <- cv.glmnet(X_train_std, y_train, alpha = 0.5) 
+
+best_lambda <- enet_model_turkey$lambda.min
+
+y_pred <- predict(enet_model_turkey, newx = X_test_std, s = best_lambda)
+
+mse <- mean((y_pred - y_test)^2)
+rsquared <- cor(y_pred, y_test)^2
+
+cat("Best Lambda:", best_lambda, "\n")
+cat("Mean Squared Error:", mse, "\n")
+cat("R-squared:", rsquared, "\n")
+```
+
+Vietnam - model1- 0.66 death ~ - c(Event, Deaths) 
+```{r}
+y <- training_data_vietnam$Deaths
+X <- subset(training_data_vietnam, select = - c(Event,Deaths )) 
+
+train_data <- training_data_vietnam
+test_data <-  testing_data_vietnam
+
+X_train <- as.matrix(subset(train_data, select =- c(Event,Deaths ))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths )))
+y_test <- test_data$Deaths
+
+X_train_std <- scale(X_train)
+X_test_std <- scale(X_test)
+
+enet_model_vietnam <- cv.glmnet(X_train_std, y_train, alpha = 0.5) 
+
+best_lambda <- enet_model_vietnam$lambda.min
+
+y_pred <- predict(enet_model_vietnam, newx = X_test_std, s = best_lambda)
+
+mse <- mean((y_pred - y_test)^2)
+rsquared <- cor(y_pred, y_test)^2
+
+cat("Best Lambda:", best_lambda, "\n")
+cat("Mean Squared Error:", mse, "\n")
+cat("R-squared:", rsquared, "\n")
+```
+
+Yemen - model1- 0.58 death ~ - c(Event, Deaths) 
+```{r}
+y <- training_data_yemen$Deaths
+X <- subset(training_data_yemen, select = - c(Event,Deaths )) 
+
+train_data <- training_data_yemen
+test_data <-  testing_data_yemen
+
+X_train <- as.matrix(subset(train_data, select =- c(Event,Deaths ))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths )))
+y_test <- test_data$Deaths
+
+X_train_std <- scale(X_train)
+X_test_std <- scale(X_test)
+
+enet_model_yemen <- cv.glmnet(X_train_std, y_train, alpha = 0.5) 
+
+best_lambda <- enet_model_yemen$lambda.min
+
+y_pred <- predict(enet_model_vietnam, newx = X_test_std, s = best_lambda)
+
+mse <- mean((y_pred - y_test)^2)
+rsquared <- cor(y_pred, y_test)^2
+
+cat("Best Lambda:", best_lambda, "\n")
+cat("Mean Squared Error:", mse, "\n")
+cat("R-squared:", rsquared, "\n")
+
+```
+
+Pakistan model1- na death ~ - c(Event, Deaths, Monetary.LossUSD) 
+```{r}
+y <- training_data_pakistan$Deaths
+X <- subset(training_data_pakistan, select = - c(Event,Deaths, Monetary.LossUSD )) 
+
+train_data <- training_data_pakistan
+test_data <-  testing_data_pakistan
+
+X_train <- as.matrix(subset(train_data, select =- c(Event,Deaths, Monetary.LossUSD ))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths, Monetary.LossUSD )))
+y_test <- test_data$Deaths
+
+X_train_std <- scale(X_train)
+X_test_std <- scale(X_test)
+
+enet_model_pakistan <- cv.glmnet(X_train_std, y_train, alpha = 0.5) 
+
+best_lambda <- enet_model_pakistan$lambda.min
+
+y_pred <- predict(enet_model_pakistan, newx = X_test_std, s = best_lambda)
+
+mse <- mean((y_pred - y_test)^2)
+rsquared <- cor(y_pred, y_test)^2
+
+cat("Best Lambda:", best_lambda, "\n")
+cat("Mean Squared Error:", mse, "\n")
+cat("R-squared:", rsquared, "\n")
+```
+
+Srilanka - model1-  na death ~ - c(Event, Deaths) 
+```{r}
+y <- training_data_srilanka$Deaths
+X <- subset(training_data_srilanka, select = - c(Event,Deaths )) 
+
+train_data <- training_data_srilanka
+test_data <-  testing_data_srilanka
+
+X_train <- as.matrix(subset(train_data, select =- c(Event,Deaths ))) 
+y_train <- train_data$Deaths
+X_test <- as.matrix(subset(test_data, select = - c(Event,Deaths )))
+y_test <- test_data$Deaths
+
+X_train_std <- scale(X_train)
+X_test_std <- scale(X_test)
+
+enet_model_srilanka <- cv.glmnet(X_train_std, y_train, alpha = 0.5) 
+
+best_lambda <- enet_model_srilanka$lambda.min
+
+y_pred <- predict(enet_model_srilanka, newx = X_test_std, s = best_lambda)
+
+mse <- mean((y_pred - y_test)^2)
+rsquared <- cor(y_pred, y_test)^2
+
+cat("Best Lambda:", best_lambda, "\n")
+cat("Mean Squared Error:", mse, "\n")
+cat("R-squared:", rsquared, "\n")
+```
+
+#Cluster 1
+```{r}
+
+turkey_c$Severity_Class <- ifelse(turkey_c$Event_Severity >= mean(turkey_c$Event_Severity), "High Severity", "Low Severity")
+
+
+year_quantiles <- quantile(turkey_c$Year, probs = c(0, 1/3, 2/3, 1))
+
+turkey_c$Temporal_Class <- cut(turkey_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+turkey_c$Combined_Impact <- rowSums(subset(turkey_c, select =  c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+
+quantiles <- quantile(turkey_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+
+turkey_c$Impact_Class <- cut(turkey_c$Combined_Impact,
+                                breaks = quantiles,
+                                labels = c("Minimal Impact", "Moderate Impact", "Severe Impact"),
+                                include.lowest = TRUE)
+
+kmeans_result <- kmeans(turkey_c$DataCards, centers = 4)
+turkey_c$cluster_id <- factor(kmeans_result$cluster)
+
+cluster_means <- aggregate(turkey_c$DataCards, by = list(turkey_c$cluster_id), FUN = mean)
+
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+
+turkey_c$cluster_label <- label_mapping[match(turkey_c$cluster_id, sorted_clusters$Group.1)]
+
+
+
+```
+
+
+```{r}
+vietnam_c$Severity_Class <- ifelse(vietnam_c$Event_Severity >= mean(vietnam_c$Event_Severity ), "High Severity", "Low Severity")
+
+year_quantiles <- quantile(vietnam_c$Year, probs = c(0, 1/3, 2/3, 1))
+
+
+vietnam_c$Temporal_Class <- cut(vietnam_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+vietnam_c$Combined_Impact <- rowSums(subset(vietnam_c, select =  c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+
+quantiles <- quantile(vietnam_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+
+vietnam_c$Impact_Class <- cut(vietnam_c$Combined_Impact,
+                                breaks = quantiles,
+                                labels = c("Minimal Impact", "Moderate Impact", "Severe Impact"),
+                                include.lowest = TRUE)
+
+kmeans_result <- kmeans(vietnam_c$DataCards, centers = 4)
+vietnam_c$cluster_id <- factor(kmeans_result$cluster)
+
+cluster_means <- aggregate(vietnam_c$DataCards, by = list(vietnam_c$cluster_id), FUN = mean)
+
+
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+
+vietnam_c$cluster_label <- label_mapping[match(vietnam_c$cluster_id, sorted_clusters$Group.1)]
+
+
+```
+
+
+```{r}
+
+yemen_c$Severity_Class <- ifelse(yemen_c$Event_Severity >= mean(yemen_c$Event_Severity), "High Severity", "Low Severity")
+
+
+
+year_quantiles <- quantile(yemen_c$Year, probs = c(0, 1/3, 2/3, 1))
+yemen_c$Temporal_Class <- cut(yemen_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+yemen_c$Combined_Impact <- rowSums(subset(yemen_c, select = c(Deaths, Houses.Ruined, Affected, Monetary.LossUSD)))
+quantiles <- quantile(yemen_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+quantiles <- unique(quantiles)
+
+labels <- c("Minimal Impact", "Moderate Impact", "Severe Impact", "Very Severe Impact")
+yemen_c$Impact_Class <- cut(yemen_c$Combined_Impact,
+                            breaks = quantiles,
+                            labels = labels[1:(length(quantiles) - 1)],
+                            include.lowest = TRUE)
+
+kmeans_result <- kmeans(yemen_c$DataCards, centers = 4)
+yemen_c$cluster_id <- factor(kmeans_result$cluster)
+cluster_means <- aggregate(yemen_c$DataCards, by = list(yemen_c$cluster_id), FUN = mean)
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+yemen_c$cluster_label <- label_mapping[match(yemen_c$cluster_id, sorted_clusters$Group.1)]
+
+```
+
+
+```{r}
+pakistan_c$Severity_Class <- ifelse(pakistan_c$Event_Severity >= mean(pakistan_c$Event_Severity), "High Severity", "Low Severity")
+
+year_quantiles <- quantile(pakistan_c$Year, probs = c(0, 1/3, 2/3, 1))
+pakistan_c$Temporal_Class <- cut(pakistan_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+pakistan_c$Combined_Impact <- rowSums(subset(pakistan_c, select = c(Deaths, Houses.Ruined, Affected)))
+quantiles <- quantile(pakistan_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+quantiles <- unique(quantiles)
+
+labels <- c("Minimal Impact", "Moderate Impact", "Severe Impact", "Very Severe Impact")
+pakistan_c$Impact_Class <- cut(pakistan_c$Combined_Impact,
+                            breaks = quantiles,
+                            labels = labels[1:(length(quantiles) - 1)],
+                            include.lowest = TRUE)
+
+kmeans_result <- kmeans(pakistan_c$DataCards, centers = 4)
+pakistan_c$cluster_id <- factor(kmeans_result$cluster)
+cluster_means <- aggregate(pakistan_c$DataCards, by = list(pakistan_c$cluster_id), FUN = mean)
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+pakistan_c$cluster_label <- label_mapping[match(pakistan_c$cluster_id, sorted_clusters$Group.1)]
+```
+
+
+```{r}
+srilanka_c$Severity_Class <- ifelse(srilanka_c$Event_Severity >= mean(srilanka_c$Event_Severity), "High Severity", "Low Severity")
+
+year_quantiles <- quantile(srilanka_c$Year, probs = c(0, 1/3, 2/3, 1))
+srilanka_c$Temporal_Class <- cut(srilanka_c$Year,
+                                  breaks = year_quantiles,
+                                  labels = c("Early Period", "Mid Period", "Recent Period"),
+                                  include.lowest = TRUE)
+
+srilanka_c$Combined_Impact <- rowSums(subset(srilanka_c, select = c(Deaths, Houses.Ruined, Affected)))
+quantiles <- quantile(srilanka_c$Combined_Impact, probs = c(0, 0.25, 0.75, 1))
+quantiles <- unique(quantiles)
+
+labels <- c("Minimal Impact", "Moderate Impact", "Severe Impact", "Very Severe Impact")
+srilanka_c$Impact_Class <- cut(srilanka_c$Combined_Impact,
+                            breaks = quantiles,
+                            labels = labels[1:(length(quantiles) - 1)],
+                            include.lowest = TRUE)
+
+kmeans_result <- kmeans(srilanka_c$DataCards, centers = 4)
+srilanka_c$cluster_id <- factor(kmeans_result$cluster)
+cluster_means <- aggregate(srilanka_c$DataCards, by = list(srilanka_c$cluster_id), FUN = mean)
+sorted_clusters <- cluster_means[order(cluster_means$x),]
+label_mapping <- c("Most DataCards", "Moderately High DataCards", "Moderately Less DataCards", "Least DataCards")
+
+srilanka_c$cluster_label <- label_mapping[match(srilanka_c$cluster_id, sorted_clusters$Group.1)]
+```
+
+
+```{r}
+# Combine the datasets
+combined_data_asia <- rbind(
+  data.frame(Country = "Turkey", Severity_Class = turkey_c$Severity_Class, Temporal_Class =turkey_c$Temporal_Class, Impact_Class = turkey_c$Impact_Class,  cluster_id =  turkey_c$cluster_label, Year = turkey_c$Year ),
+  data.frame(Country = "Vietnam", Severity_Class = vietnam_c$Severity_Class, Temporal_Class =vietnam_c$Temporal_Class, Impact_Class = vietnam_c$Impact_Class, cluster_id =  vietnam_c$cluster_label, Year = vietnam_c$Year),
+  data.frame(Country = "Yemen", Severity_Class = yemen_c$Severity_Class, Temporal_Class =yemen_c$Temporal_Class, Impact_Class = yemen_c$Impact_Class, cluster_id =  yemen_c$cluster_label, Year = yemen_c$Year),
+  data.frame(Country = "Pakistan", Severity_Class = pakistan_c$Severity_Class, Temporal_Class =pakistan_c$Temporal_Class, Impact_Class = pakistan_c$Impact_Class,  cluster_id =  pakistan_c$cluster_label, Year = pakistan_c$Year ),
+  data.frame(Country = "Sri Lanka", Severity_Class = srilanka_c$Severity_Class, Temporal_Class =srilanka_c$Temporal_Class, Impact_Class = srilanka_c$Impact_Class,  cluster_id =  srilanka_c$cluster_label, Year = srilanka_c$Year )
+)
+
+```
+
+
+```{r}
+classify_disaster <- function(severity, impact, cluster) {
+  risk_level <- character(length = length(severity))
+  
+ for (i in 1:length(severity)) {
+    if (severity[i] == "High Severity") {
+      if (impact[i] == "Very Severe Impact") {
+        risk_level[i] <- "Extremely High Risk"
+      } else if (impact[i] == "Severe Impact") {
+        risk_level[i] <- "Very High Risk"
+      } else if (impact[i] == "Moderate Impact") {
+        risk_level[i] <- "High-Moderate Risk"
+      } else {
+        risk_level[i] <- "High-Low Risk"
+      }
+    } else if (severity[i] == "Low Severity") {
+      if (impact[i] == "Severe Impact") {
+        risk_level[i] <- "Moderate-High Risk"
+      } else if (impact[i] == "Moderate Impact") {
+        risk_level[i] <- "Moderate Risk"
+      } else {
+        risk_level[i] <- "Low Risk"
+      }
+    } else if (impact[i] == "Severe Impact") {
+      risk_level[i] <- "High Risk"
+    } else if (cluster[i] == "Most DataCards") {
+      risk_level[i] <- "Clustered Risk"
+    } else if (cluster[i] == "Moderately High DataCards") {
+      risk_level[i] <- "Moderately High DataCards Risk"
+    } else if (cluster[i] == "Moderately Less DataCards") {
+      risk_level[i] <- "Moderately Less DataCards Risk"
+    } else if (cluster[i] == "Least DataCards") {
+      risk_level[i] <- "Least DataCards Risk"
+    } else {
+      risk_level[i] <- "Undefined Risk"
+    }
+  }
+  
+  return(risk_level)
+}
+
+combined_data_asia$Disaster_Risk <- classify_disaster(
+  combined_data_asia$Severity_Class,
+  combined_data_asia$Impact_Class,
+  combined_data_asia$cluster_id
+)
+
+
+```
+
+
+```{r}
+
+combined_data_asia$Year <- as.factor(combined_data_asia$Temporal_Class)
+
+heatmap_asia <- ggplot(combined_data_asia, aes(x = Year, y = Country, fill = Disaster_Risk)) +
+  geom_tile() +
+  scale_fill_manual(values = c(
+    "Extremely High Risk" = "red",
+    "Very High Risk" = "orange",
+    "High-Moderate Risk" = "yellow",
+    "High-Low Risk" = "yellowgreen",
+    "Moderate-High Risk" = "green",
+    "Moderate Risk" = "lightblue",
+    "Low Risk" = "blue",
+    "High Risk" = "purple",
+    "Clustered Risk" = "skyblue",
+    "Moderately High DataCards Risk" = "pink",
+    "Moderately Less DataCards Risk" = "violet",
+    "Least DataCards Risk" = "grey",
+    "Undefined Risk" = "white"
+  )) +
+  labs(
+    title = "Disaster Risk Heatmap",
+    x = "Year",
+    y = "Country",
+    fill = "Disaster Risk"
+  ) +
+  theme_minimal()
+print(heatmap_asia)
+```
+
+#Cluster 2
+```{r}
+turkey_c$Country <- "Turkey"
+vietnam_c$Country <- "Vietnam"
+yemen_c$Country <- "Yemen"
+pakistan_c$Country <- "Pakistan"
+srilanka_c$Country <- "Sri Lanka"
+
+asias <- rbind(turkey_c, vietnam_c, yemen_c, pakistan_c, srilanka_c)
+asias$cluster_id <- as.integer(as.character(asias$cluster_id))
+data_for_clustering <-asias[, c("cluster_id", "Deaths", "Monetary.LossUSD")]
+
+scaled_data <- scale(data_for_clustering)
+
+set.seed(123) 
+clara_output <- clara(scaled_data, k = 4, samples = 500)
+colors <- rainbow(length(unique(clara_output$clustering)))
+
+scaled_data_with_clusters <- cbind(scaled_data, Cluster = clara_output$clustering)
+
+pairs(scaled_data_with_clusters[, -ncol(scaled_data_with_clusters)], 
+      col = colors[clara_output$clustering], pch = 19)
+
+legend("left", legend = unique(clara_output$clustering), fill = colors, title = "Clusters")
+```
