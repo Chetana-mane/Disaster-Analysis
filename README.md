@@ -1,4 +1,4 @@
-Here's a refined and GitHub-ready `README.md` file for the African disaster analysis, complete with images integrated as described:
+
 
 ---
 
